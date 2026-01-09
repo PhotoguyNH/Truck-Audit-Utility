@@ -51,7 +51,6 @@
   let missingQueue = [];
 
   let scanner = null;
-  let streamTrack = null;
   let torchSupported = false;
   let torchOn = false;
 
