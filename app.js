@@ -20,6 +20,8 @@
   
   let stream = null;
   let streamTrack = null;
+  let armed = false;
+  let lastText = null;
 
   const statExpected = $('statExpected');
   const statMatched = $('statMatched');
@@ -310,21 +312,41 @@
   });
 
   async function startCamera(){
+    // Ask for a sharper rear-camera stream (helps with small barcodes)
+  stream = await navigator.mediaDevices.getUserMedia({
+    audio: false,
+    video: {
+      facingMode: { ideal: "environment" }, // rear camera
+      width:  { ideal: 1920 },
+      height: { ideal: 1080 }
+    }
+  });
+
+  video.srcObject = stream;
+  video.setAttribute("playsinline", "true");
+  await video.play();
+
+  streamTrack = stream.getVideoTracks()[0];
     const devices = await ZXingBrowser.BrowserMultiFormatReader.listVideoInputDevices();
     const deviceId = (devices && devices.length) ? devices[0].deviceId : undefined;
 
     scanner = new ZXingBrowser.BrowserMultiFormatReader();
 
-let hasScanned = false;
-
 await scanner.decodeFromVideoDevice(deviceId, video, (result, err) => {
-  if (result && !hasScanned) {
-    hasScanned = true;
-    onSerialScanned(result.getText());
+  if (!result) return;
 
-    // stop continuous scanning after ONE successful read
-    try { scanner.reset(); } catch (e) {}
-  }
+  const text = result.getText();
+
+  // If we already scanned OR it's the same exact text again, ignore it
+  if (!armed || text === lastText) return;
+
+  lastText = text;
+  armed = false;                 // lock until user presses "Scan Next"
+  onSerialScanned(text);
+
+  // UI: allow another scan
+  startScan.disabled = false;
+  startScan.textContent = 'Scan Next';
 });
 
     try{
@@ -351,6 +373,7 @@ await scanner.decodeFromVideoDevice(deviceId, video, (result, err) => {
   }
 
   startScan.addEventListener('click', async ()=>{
+    armed = true;
     startScan.disabled = true;
     stopScan.disabled = false;
     try{
