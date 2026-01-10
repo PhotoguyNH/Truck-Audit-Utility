@@ -394,6 +394,16 @@ await scanner.decodeFromVideoDevice(deviceId, video, (result, err) => {
     stopScan.disabled = true;
     setBanner('ok', 'Camera stopped');
   });
+  
+  finishedScan.addEventListener('click', async () => {
+  await stopCamera();
+
+  startScan.disabled = false;
+  stopScan.disabled = true;
+  finishedScan.disabled = true;
+
+  setBanner('ok', 'Finished scanning');
+});
 
   flashBtn.addEventListener('click', async ()=>{
     if(!streamTrack || !torchSupported) return;
