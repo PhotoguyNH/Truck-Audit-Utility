@@ -364,6 +364,7 @@ await scanner.decodeFromVideoDevice(deviceId, video, (result, err) => {
 
   async function stopCamera() {
   try {
+    if (streamTrack) { streamTrack.stop(); streamTrack = null; }
     // Stop all camera tracks
     if (stream) {
       stream.getTracks().forEach(t => t.stop());
