@@ -398,6 +398,9 @@ await scanner.decodeFromVideoDevice(deviceId, video, (result, err) => {
   });
   
   finishedScan.addEventListener('click', async () => {
+  armed = false;
+  lastText = null;
+    
   await stopCamera();
 
   startScan.disabled = false;
