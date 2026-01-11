@@ -20,6 +20,21 @@
   const finishedScan = $('finishedScan');
   const video = $('video');
   const banner = $('banner');
+  const zoomWrap = $('zoomWrap');
+  const zoomSlider = $('zoomSlider');
+
+  zoomSlider.addEventListener('input', async () => {
+  if (!streamTrack) return;
+
+  const z = Number(zoomSlider.value);
+  try {
+    await streamTrack.applyConstraints({ advanced: [{ zoom: z }] });
+  } catch (e) {
+    // ignore if not supported on this device/browser
+  }
+});
+
+
   
   let stream = null;
   let streamTrack = null;
@@ -330,6 +345,27 @@
   await video.play();
 
   streamTrack = stream.getVideoTracks()[0];
+    // Zoom support (if the device/browser exposes it)
+zoomWrap.hidden = true;
+
+try {
+  const caps = streamTrack.getCapabilities?.();
+  if (caps && caps.zoom) {
+    zoomWrap.hidden = false;
+
+    zoomSlider.min = caps.zoom.min ?? 1;
+    zoomSlider.max = caps.zoom.max ?? 1;
+    zoomSlider.step = caps.zoom.step ?? 0.1;
+
+    // Start at a sane default (min zoom)
+    zoomSlider.value = caps.zoom.min ?? 1;
+    await streamTrack.applyConstraints({ advanced: [{ zoom: Number(zoomSlider.value) }] });
+  }
+} catch (e) {
+  // If iOS Safari doesn't expose zoom caps, just keep it hidden.
+  zoomWrap.hidden = true;
+}
+
     const devices = await ZXingBrowser.BrowserMultiFormatReader.listVideoInputDevices();
     const deviceId = (devices && devices.length)
     ? (devices.find(d => /back|rear|environment/i.test(d.label)) || devices[devices.length - 1]).deviceId
@@ -384,6 +420,8 @@ await scanner.decodeFromVideoDevice(deviceId, video, (result, err) => {
     torchSupported = false;
     torchOn = false;
     flashBtn.hidden = true;
+    zoomWrap.hidden = true;
+
 
     // iOS Safari fix: fully release the video element
     video.pause();
