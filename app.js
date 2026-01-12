@@ -330,6 +330,12 @@
   await video.play();
 
   streamTrack = stream.getVideoTracks()[0];
+    // Default zoom (if supported) — try ~2x
+  try {
+   const caps = streamTrack.getCapabilities?.();
+   if (caps?.zoom) await streamTrack.applyConstraints({ advanced: [{ zoom: 2 }] });
+} catch (_) {}
+
     const devices = await ZXingBrowser.BrowserMultiFormatReader.listVideoInputDevices();
     const deviceId = (devices && devices.length)
     ? (devices.find(d => /back|rear|environment/i.test(d.label)) || devices[devices.length - 1]).deviceId
