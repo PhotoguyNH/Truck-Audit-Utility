@@ -41,8 +41,37 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .banner.ok{background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0}
 .banner.warn{background:#fff7ed;color:#9a3412;border:1px solid #fed7aa}
 .banner.bad{background:#fef2f2;color:#991b1b;border:1px solid #fecaca}
-.videoWrap{border:1px solid var(--border);border-radius:14px;overflow:hidden;background:black;margin:10px 0}
-video{width:100%;height:320px;object-fit:cover}
+.videoWrap{
+  position: relative;
+  border:1px solid var(--border);
+  border-radius:14px;
+  overflow:hidden;
+  background:black;margin:10px 0}
+video{
+  width:100%;
+  height:320px;
+  object-fit:cover}
+/* Scan guide overlay */
+.scanGuide{
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+}
+
+/* Thin horizontal barcode guide */
+.scanGuide::before{
+  content:"";
+  position:absolute;
+  left:8%;
+  right:8%;
+  top:50%;
+  height:2px;
+  transform:translateY(-50%);
+  background: rgba(255, 60, 60, 0.6);
+  box-shadow:0 0 0 1px rgba(0,0,0,0.35);
+  border-radius:2px;
+}
+
 .results{margin-top:10px}
 .cols{display:grid;grid-template-columns:repeat(3, minmax(0,1fr));gap:10px}
 .list{border:1px solid var(--border);border-radius:14px;min-height:120px;max-height:260px;overflow:auto;padding:10px;background:#fff}
