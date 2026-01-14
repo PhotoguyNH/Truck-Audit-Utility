@@ -30,7 +30,7 @@ function beepTick() {
     gain.connect(audioCtx.destination);
 
     osc.start(now);
-    osc.stop(now + 0.07);
+    osc.stop(now + 0.40);
   } catch (e) {}
 }
 
