@@ -49,7 +49,7 @@ function beepTick() {
 
     osc.type = 'sine';
     osc.frequency.value = 880; // subtle "tick"
-    gain.gain.value = 0.15;
+    gain.gain.value = 0.40;
 
     osc.connect(gain);
     gain.connect(ctx.destination);
