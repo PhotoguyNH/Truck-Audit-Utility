@@ -69,6 +69,15 @@ function beepTick() {
   const partCol = $('partCol');
   const expectedSummary = $('expectedSummary');
 
+  const testBeep = document.getElementById('testBeep');
+
+testBeep.addEventListener('click', () => {
+  primeAudio();
+  beepTick();
+  setBanner('ok', 'Beep test fired');
+});
+
+
   const startScan = $('startScan');
   const stopScan = $('stopScan');
   const flashBtn = $('flashBtn');
