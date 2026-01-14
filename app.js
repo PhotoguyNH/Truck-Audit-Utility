@@ -1,4 +1,5 @@
-c
+(function(){
+
 function beepTick() {
   try {
     primeAudio(); // ensure unlocked
