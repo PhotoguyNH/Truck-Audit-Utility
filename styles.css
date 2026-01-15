@@ -25,7 +25,7 @@ button.primary{
   background:var(--blue2);
   color:white}
 button.secondary{background:#eef2ff;border-color:#dbe3ff;color:#1f2a44}
-button.ghost{background:transparent;border-color:rgba(255,255,255,.35);color:white}
+button.ghost{background:transparent;border-color:rgba(0,0,0,.25);color:#1f2a44}
 button:disabled{opacity:.45;cursor:not-allowed}
 .bigPrimary{
   padding:20px 22px;
