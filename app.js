@@ -71,12 +71,12 @@ function beepTick() {
 
   const testBeep = document.getElementById('testBeep');
 
-testBeep.addEventListener('click', () => {
-  primeAudio();
-  beepTick();
-  setBanner('ok', 'Beep test fired');
-});
-
+if (testBeep) {
+  testBeep.addEventListener('click', () => {
+    beepTick();
+    setBanner('ok', 'Beep test fired');
+  });
+}
 
   const startScan = $('startScan');
   const stopScan = $('stopScan');
