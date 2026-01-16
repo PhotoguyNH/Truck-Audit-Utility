@@ -594,12 +594,12 @@ await scanner.decodeFromVideoDevice(deviceId, video, (result, err) => {
     installBtn.hidden = true;
   });
 
-  if('serviceWorker' in navigator){
-    window.addEventListener('load', ()=>{
-      navigator.serviceWorker.register('sw.js').catch(()=>{});
-    });
-  }
+ if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
 
-  setBanner('ok', 'Choose a mode to begin');
-  updateUI();
+setBanner('ok', 'Choose a mode to begin');
+updateUI();
 })();
