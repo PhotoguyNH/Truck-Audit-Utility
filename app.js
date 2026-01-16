@@ -1,63 +1,6 @@
 (function(){
   const $ = (id)=>document.getElementById(id);
 
-  let audioCtx = null;
-
-function primeAudio() {
-  try {
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-  } catch (e) {}
-}
-
-function beepTick() {
-  try {
-    primeAudio(); // ensure unlocked
-    if (!audioCtx) return;
-
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-
-    osc.type = 'sine';
-    osc.frequency.value = 880;
-
-    const now = audioCtx.currentTime;
-    gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(0.05, now + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.06);
-
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
-
-    osc.start(now);
-    osc.stop(now + 0.40);
-  } catch (e) {}
-}
-
-  
-  function hapticSuccess() {
-  // iOS / modern mobile
-  if (navigator.vibrate) {
-    navigator.vibrate(30);
-  }
-
-  // Optional tiny "tick" sound (safe fallback)
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-
-    osc.type = 'sine';
-    osc.frequency.value = 880; // subtle "tick"
-    gain.gain.value = 0.40;
-
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-
-    osc.start();
-    osc.stop(ctx.currentTime + 0.03);
-  } catch (_) {}
-}
   const modeAuditBtn = $('modeAuditBtn');
   const modeQuickBtn = $('modeQuickBtn');
   const auditSection = $('auditSection');
@@ -69,44 +12,11 @@ function beepTick() {
   const partCol = $('partCol');
   const expectedSummary = $('expectedSummary');
 
-  const testBeep = document.getElementById('testBeep');
-
-testBeep.addEventListener('click', () => {
-  primeAudio();
-  beepTick();
-  setBanner('ok', 'Beep test fired');
-});
-
-
   const startScan = $('startScan');
   const stopScan = $('stopScan');
   const flashBtn = $('flashBtn');
-  const zoomWrap = document.getElementById('zoomWrap');
-  const zoomSlider = document.getElementById('zoomSlider');
-  const finishedScan = $('finishedScan');
   const video = $('video');
   const banner = $('banner');
-  flashBtn.addEventListener('click', () => {
-  if (!streamTrack) return;
-
-  const caps = streamTrack.getCapabilities();
-  if (!caps.torch) {
-    setBanner('warn', 'Flash not supported on this device');
-    return;
-  }
-
-  const torchOn = streamTrack.getConstraints()?.advanced?.[0]?.torch === true;
-
-  streamTrack.applyConstraints({
-    advanced: [{ torch: !torchOn }]
-  });
-});
-
-  
-  let stream = null;
-  let streamTrack = null;
-  let armed = false;
-  let lastText = null;
 
   const statExpected = $('statExpected');
   const statMatched = $('statMatched');
@@ -136,6 +46,7 @@ testBeep.addEventListener('click', () => {
   let missingQueue = [];
 
   let scanner = null;
+  let streamTrack = null;
   let torchSupported = false;
   let torchOn = false;
 
@@ -273,17 +184,14 @@ testBeep.addEventListener('click', () => {
         matchedCount += 1;
         const p = expected.get(s)?.part;
         setBanner('ok', p ? ('Expected: ' + s + ' • ' + p) : ('Expected: ' + s));
-        hapticSuccess();
       } else {
         extras.add(s);
-        beepTick();
         setBanner('warn', 'Extra (not on list): ' + s);
       }
     } else {
-      beepTick();
       setBanner('ok', 'Added: ' + s);
-      hapticSuccess();
     }
+
     updateUI();
   }
 
@@ -399,51 +307,15 @@ testBeep.addEventListener('click', () => {
   });
 
   async function startCamera(){
-    // Ask for a sharper rear-camera stream (helps with small barcodes)
-  stream = await navigator.mediaDevices.getUserMedia({
-  audio: false,
-  video: {
-    facingMode: { ideal: "environment" },
-    width: { ideal: 1280 },
-    height: { ideal: 720 },
-    frameRate: { ideal: 30, max: 30 }
-  }
-});
-
-  video.srcObject = stream;
-  video.setAttribute("playsinline", "true");
-  await video.play();
-
-  streamTrack = stream.getVideoTracks()[0];
-    // Default zoom (if supported) — try ~2x
-  try {
-   const caps = streamTrack.getCapabilities?.();
-   if (caps?.zoom) await streamTrack.applyConstraints({ advanced: [{ zoom: 2 }] });
-} catch (_) {}
-
     const devices = await ZXingBrowser.BrowserMultiFormatReader.listVideoInputDevices();
-    const deviceId = (devices && devices.length)
-    ? (devices.find(d => /back|rear|environment/i.test(d.label)) || devices[devices.length - 1]).deviceId
-    : undefined;
+    const deviceId = (devices && devices.length) ? devices[0].deviceId : undefined;
 
     scanner = new ZXingBrowser.BrowserMultiFormatReader();
-
-await scanner.decodeFromVideoDevice(deviceId, video, (result, err) => {
-  if (!result) return;
-
-  const text = result.getText();
-
-  // If we already scanned OR it's the same exact text again, ignore it
-  if (!armed || text === lastText) return;
-
-  lastText = text;
-  armed = false;                 // lock until user presses "Scan Next"
-  onSerialScanned(text);
-
-  // UI: allow another scan
-  startScan.disabled = false;
-  startScan.textContent = 'Scan Next';
-});
+    await scanner.decodeFromVideoDevice(deviceId, video, (result, err)=>{
+      if(result){
+        onSerialScanned(result.getText());
+      }
+    });
 
     try{
       const stream = video.srcObject;
@@ -456,49 +328,23 @@ await scanner.decodeFromVideoDevice(deviceId, video, (result, err) => {
     }catch(_){}
   }
 
-  async function stopCamera() {
-  try {
-    if (streamTrack) { streamTrack.stop(); streamTrack = null; }
-    // Stop all camera tracks
-    if (stream) {
-      stream.getTracks().forEach(t => t.stop());
-      stream = null;
-    }
-
-    // Reset scanner
-    if (scanner) {
-      scanner.reset();
-      scanner = null;
-    }
-
-    // Reset flashlight state
+  async function stopCamera(){
+    try{
+      if(scanner) scanner.reset();
+      if(streamTrack) streamTrack.stop();
+    }catch(_){}
+    scanner = null;
+    streamTrack = null;
     torchSupported = false;
     torchOn = false;
     flashBtn.hidden = true;
-
-    // iOS Safari fix: fully release the video element
-    video.pause();
-    video.srcObject = null;
-    video.removeAttribute('src');
-    video.load();
-
-    streamTrack = null;
-
-  } catch (e) {
-    console.warn('stopCamera error', e);
   }
-}
-
 
   startScan.addEventListener('click', async ()=>{
-    primeAudio();
-    armed = true;
-    finishedScan.disabled = false;
     startScan.disabled = true;
     stopScan.disabled = false;
     try{
       await startCamera();
-      zoomWrap.hidden = false;
       setBanner('ok', 'Camera started');
     }catch(e){
       setBanner('bad', 'Camera error: ' + e.message);
@@ -509,25 +355,10 @@ await scanner.decodeFromVideoDevice(deviceId, video, (result, err) => {
 
   stopScan.addEventListener('click', async ()=>{
     await stopCamera();
-    finishedScan.disabled = true;
     startScan.disabled = false;
     stopScan.disabled = true;
     setBanner('ok', 'Camera stopped');
   });
-  
-  finishedScan.addEventListener('click', async () => {
-  armed = false;
-  lastText = null;
-  await stopCamera();
-  zoomWrap.hidden = true;
-
-
-  startScan.disabled = false;
-  stopScan.disabled = true;
-  finishedScan.disabled = true;
-
-  setBanner('ok', 'Finished scanning');
-});
 
   flashBtn.addEventListener('click', async ()=>{
     if(!streamTrack || !torchSupported) return;
