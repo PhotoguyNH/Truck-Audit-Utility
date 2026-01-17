@@ -448,22 +448,7 @@ async function stopCamera(){
   flashBtn.textContent = 'Flashlight';
   flashBtn.classList.remove('on');
 }
-
-        streamTrack.stop();
-      }
-    }catch(_){}
-    scanner = null;
-    streamTrack = null;
-    torchSupported = false;
-    torchOn = false;
-    zoomSupported = false;
-    flashBtn.hidden = false;
-    flashBtn.disabled = true;
-    flashBtn.textContent = 'Flashlight';
-    flashBtn.classList.remove('on');
-  }
-
-  startScan.addEventListener('click', async ()=>{
+startScan.addEventListener('click', async ()=>{
     const originalLabel = startScan.textContent;
     startScan.disabled = true;
     startScan.textContent = 'Scanning…';
