@@ -50,6 +50,63 @@
   let torchSupported = false;
   let torchOn = false;
   let zoomSupported = false;
+  let preferredDeviceId = null;
+  let armed = false;           // one scan per click
+  let startingCamera = false;  // prevents double-start
+  let hasScannedOnce = false;
+  let armTimeoutId = null;
+  let audioCtx = null;
+
+  function ensureAudio(){
+    if(audioCtx) return audioCtx;
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if(!Ctx) return null;
+    audioCtx = new Ctx();
+    return audioCtx;
+  }
+
+  function beep(freq=880, durationMs=90, gainValue=0.7){
+    const ctx = ensureAudio();
+    if(!ctx) return;
+    // Some iOS versions start suspended until a user gesture; Scan click counts.
+    if(ctx.state === 'suspended') { ctx.resume().catch(()=>{}); }
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    gain.gain.value = 0;
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    const now = ctx.currentTime;
+    const dur = Math.max(0.02, durationMs/1000);
+
+    // Fast attack, short sustain, quick release.
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, gainValue), now + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+
+    osc.start(now);
+    osc.stop(now + dur + 0.02);
+  }
+
+  function scanStartSound(){
+    beep(880, 60, 0.35);
+  }
+
+  function scanSuccessSound(){
+    // Two-tone loud beep so it cuts through ambient noise.
+    beep(1046, 120, 0.85);
+    setTimeout(()=>beep(784, 80, 0.65), 110);
+  }
+
+  function scanSuccessSound(){
+    // Distinct, loud double-tone.
+    beep(1046, 110, 0.85);
+    setTimeout(()=>beep(784, 90, 0.75), 90);
+  }
 
   function setBanner(kind, text){
     banner.hidden = false;
@@ -73,6 +130,7 @@
     dupCount = 0;
     matchedCount = 0;
     missingQueue = [];
+    hasScannedOnce = false;
     updateUI();
   }
 
@@ -309,12 +367,28 @@
 
   async function startCamera(){
     const devices = await ZXingBrowser.BrowserMultiFormatReader.listVideoInputDevices();
-    const deviceId = (devices && devices.length) ? devices[0].deviceId : undefined;
+
+    // Prefer the rear camera. On iOS, device labels may be empty until permission is granted;
+    // in that case, the "environment" camera is often the *last* entry.
+    let deviceId = preferredDeviceId;
+    if(!deviceId){
+      const byLabel = (devices || []).find(d=>/back|rear|environment/i.test(d.label||''));
+      if(byLabel) deviceId = byLabel.deviceId;
+      else if(devices && devices.length) deviceId = devices[devices.length - 1].deviceId;
+    }
+    preferredDeviceId = deviceId || null;
 
     scanner = new ZXingBrowser.BrowserMultiFormatReader();
     await scanner.decodeFromVideoDevice(deviceId, video, (result, err)=>{
-      if(result){
+      if(result && armed){
+        // One-scan-per-click: accept first result, then disarm until the user taps Scan Next.
+        armed = false;
+        hasScannedOnce = true;
+        if(armTimeoutId){ clearTimeout(armTimeoutId); armTimeoutId = null; }
+        scanSuccessSound();
         onSerialScanned(result.getText());
+        startScan.disabled = false;
+        startScan.textContent = 'Scan Next';
       }
     });
 
@@ -326,7 +400,9 @@
         torchSupported = !!caps.torch;
         flashBtn.hidden = false;
         flashBtn.disabled = !torchSupported;
+        torchOn = false;
         flashBtn.textContent = torchSupported ? 'Flashlight' : 'Flashlight (N/A)';
+        flashBtn.classList.remove('on');
 
         // Default zoom: if the device supports it, gently zoom in to help barcode reading.
         zoomSupported = typeof caps.zoom === 'object' && caps.zoom !== null;
@@ -369,18 +445,49 @@
     startScan.disabled = true;
     startScan.textContent = 'Scanning…';
     stopScan.disabled = false;
+    scanStartSound();
+
     try{
-      await startCamera();
-      setBanner('ok', 'Camera started');
+      // Start the camera once, then perform one scan per tap.
+      if(!streamTrack && !startingCamera){
+        startingCamera = true;
+        await startCamera();
+        startingCamera = false;
+        setBanner('ok', 'Camera started');
+      }
+
+      // Arm for exactly one scan. The decode callback will disarm + re-enable the button.
+      armed = true;
+      if(armTimeoutId){ clearTimeout(armTimeoutId); }
+      armTimeoutId = setTimeout(()=>{
+        if(!armed) return;
+        armed = false;
+        startScan.disabled = false;
+        startScan.textContent = hasScannedOnce ? 'Scan Next' : 'Scan';
+        setBanner('warn', 'No barcode detected — try again');
+      }, 8000);
     }catch(e){
+      startingCamera = false;
+      armed = false;
       setBanner('bad', 'Camera error: ' + e.message);
       startScan.disabled = false;
-      startScan.textContent = originalLabel;
+      startScan.textContent = originalLabel === 'Scan Next' ? 'Scan' : originalLabel;
       stopScan.disabled = true;
     }
   });
 
   stopScan.addEventListener('click', async ()=>{
+    // Turn flashlight off immediately when finishing.
+    if(streamTrack && torchSupported && torchOn){
+      try{ await streamTrack.applyConstraints({advanced:[{torch: false}]}); }catch(_){/* ignore */}
+    }
+    torchOn = false;
+    flashBtn.textContent = torchSupported ? 'Flashlight' : 'Flashlight (N/A)';
+    flashBtn.classList.remove('on');
+    armed = false;
+    hasScannedOnce = false;
+    if(armTimeoutId){ clearTimeout(armTimeoutId); armTimeoutId = null; }
+
     await stopCamera();
     startScan.disabled = false;
     startScan.textContent = 'Scan';
