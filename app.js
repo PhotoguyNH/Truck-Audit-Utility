@@ -393,18 +393,6 @@
   });
 });
 
-
-        // One-scan-per-click: accept first result, then disarm until the user taps Scan Next.
-        armed = false;
-        hasScannedOnce = true;
-        if(armTimeoutId){ clearTimeout(armTimeoutId); armTimeoutId = null; }
-        scanSuccessSound();
-        onSerialScanned(result.getText());
-        startScan.disabled = false;
-        startScan.textContent = 'Scan Next';
-      }
-    });
-
     try{
       const stream = video.srcObject;
       if(stream){
