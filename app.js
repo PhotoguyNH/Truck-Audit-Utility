@@ -97,12 +97,6 @@
   }
 
   function scanSuccessSound(){
-    // Two-tone loud beep so it cuts through ambient noise.
-    beep(1046, 120, 0.85);
-    setTimeout(()=>beep(784, 80, 0.65), 110);
-  }
-
-  function scanSuccessSound(){
   beep(2000, 180, 1.0);     // sharp confirmation
   setTimeout(() => beep(1200, 140, 1.0), 190); // softer tail
 }
@@ -417,14 +411,44 @@
     }catch(_){}
   }
 
-  async function stopCamera(){
-    try{
-      if(scanner) scanner.reset();
-      if(streamTrack){
-        // Ensure torch is off before stopping.
-        if(torchSupported && torchOn){
-          try{ await streamTrack.applyConstraints({advanced:[{torch: false}]}); }catch(_){/* ignore */}
-        }
+async function stopCamera(){
+  try{
+    // Stop decoder first
+    if(scanner) scanner.reset();
+
+    // Grab the actual stream from the <video> element (most reliable)
+    const stream = video?.srcObject;
+
+    // Best-effort: turn torch off before stopping tracks (prevents some iOS weirdness)
+    if(streamTrack && torchSupported && torchOn){
+      try{ await streamTrack.applyConstraints({advanced:[{torch:false}]}); }catch(_){}
+    }
+
+    // Stop ALL tracks (not just one stored track)
+    if(stream && typeof stream.getTracks === 'function'){
+      stream.getTracks().forEach(t => t.stop());
+    }else if(streamTrack){
+      streamTrack.stop(); // fallback
+    }
+
+    // Detach stream from video element (important for releasing camera)
+    if(video) video.srcObject = null;
+
+  }catch(_){}
+
+  // Reset state
+  scanner = null;
+  streamTrack = null;
+  torchSupported = false;
+  torchOn = false;
+  zoomSupported = false;
+
+  flashBtn.hidden = false;
+  flashBtn.disabled = true;
+  flashBtn.textContent = 'Flashlight';
+  flashBtn.classList.remove('on');
+}
+
         streamTrack.stop();
       }
     }catch(_){}
@@ -559,6 +583,11 @@
     deferredPrompt = null;
     installBtn.hidden = true;
   });
+// Safety net: if the user navigates away / backgrounds the app, release the camera
+window.addEventListener('pagehide', ()=>{ stopCamera(); });
+document.addEventListener('visibilitychange', ()=>{
+  if(document.hidden) stopCamera();
+});
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', ()=>{
