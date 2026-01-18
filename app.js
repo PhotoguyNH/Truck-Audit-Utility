@@ -47,6 +47,7 @@
 
   let scanner = null;
   let streamTrack = null;
+  let cameraStream = null;
   let torchSupported = false;
   let torchOn = false;
   let zoomSupported = false;
@@ -395,6 +396,7 @@
 
     try{
       const stream = video.srcObject;
+      cameraStream = stream;
       if(stream){
         streamTrack = stream.getVideoTracks()[0];
         const caps = streamTrack.getCapabilities ? streamTrack.getCapabilities() : {};
@@ -421,9 +423,7 @@
 
 async function stopCamera(){
   try{
-    const stream = video?.srcObject;
-    if(scanner) scanner.reset();
-
+    const stream = cameraStream || video?.srcObject;
 
     // Best-effort: turn torch off before stopping tracks (prevents some iOS weirdness)
     if(streamTrack && torchSupported && torchOn){
@@ -436,12 +436,18 @@ async function stopCamera(){
     }else if(streamTrack){
       streamTrack.stop(); // fallback
     }
+    // Now stop the ZXing decoder
+if(scanner) scanner.reset();
+    
+if(video){
+  try{ video.pause(); }catch(_){}
+  video.srcObject = null;
+  try{ video.removeAttribute('src'); }catch(_){}
+  try{ video.load(); }catch(_){}
+}
 
-    // Detach stream from video element (important for releasing camera)
-    if(video) video.srcObject = null;
-    try{ video.pause(); }catch(_){}
-    try{ video.removeAttribute('src'); }catch(_){}
-    try{ video.load(); }catch(_){}
+// Clear stored stream reference
+cameraStream = null;
 
 
   }catch(_){}
