@@ -486,10 +486,13 @@ startScan.addEventListener('click', async ()=>{
       armTimeoutId = setTimeout(()=>{
         if(!armed) return;
         armed = false;
+        stopCamera().then(()=>{
         startScan.disabled = false;
         startScan.textContent = hasScannedOnce ? 'Scan Next' : 'Scan';
-        setBanner('warn', 'No barcode detected — try again');
-      }, 8000);
+        stopScan.disabled = true;
+        setBanner('warn', 'Timed out — tap Scan Next to try again');
+          });
+      }, 20000);
     }catch(e){
       startingCamera = false;
       armed = false;
