@@ -21,6 +21,10 @@ h3{margin:12px 0 8px 0;font-size:14px}
 .row{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-top:14px;}
 .row input,
 .row button{align-self:flex-end;}
+.manualRow{align-items:flex-end}
+.manualRow .field{flex:1;min-width:220px}
+.manualRow .field label{display:block}
+.manualRow button{align-self:flex-end}
 
 .modeRow{display:flex;gap:14px;flex-wrap:wrap}
 button{border:1px solid transparent;border-radius:12px;padding:12px 14px;font-weight:700;cursor:pointer}
