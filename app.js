@@ -421,11 +421,9 @@
 
 async function stopCamera(){
   try{
-    // Stop decoder first
+    const stream = video?.srcObject;
     if(scanner) scanner.reset();
 
-    // Grab the actual stream from the <video> element (most reliable)
-    const stream = video?.srcObject;
 
     // Best-effort: turn torch off before stopping tracks (prevents some iOS weirdness)
     if(streamTrack && torchSupported && torchOn){
