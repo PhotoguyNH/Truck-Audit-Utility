@@ -1,3 +1,5 @@
+alert("APP.JS LOADED - 20260120");
+
 (function(){
   const $ = (id)=>document.getElementById(id);
 
