@@ -210,15 +210,8 @@
     }
   }
 
-  async function copyText(txt){
-  try{
-    if(navigator.clipboard && window.isSecureContext){
-      await navigator.clipboard.writeText(txt);
-      setBanner('ok', 'Copied');
-      return;
-    }
-  }catch(e){}
-
+  function copyText(txt){
+  // 1) Sync copy FIRST (best compatibility during a button click)
   try{
     const ta = document.createElement('textarea');
     ta.value = txt;
@@ -237,12 +230,18 @@
 
     if(ok){
       setBanner('ok','Copied');
-    }else{
-      setBanner('warn','Copy not supported');
-      window.prompt('Copy this:', txt);
+      return;
     }
   }catch(e){
-    setBanner('warn','Copy not supported');
+    // keep going
+  }
+
+  // 2) Async clipboard SECOND
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt)
+      .then(()=> setBanner('ok','Copied'))
+      .catch(()=> window.prompt('Copy this:', txt));
+  }else{
     window.prompt('Copy this:', txt);
   }
 }
