@@ -211,13 +211,42 @@
   }
 
   async function copyText(txt){
-    try{
+  try{
+    if(navigator.clipboard && window.isSecureContext){
       await navigator.clipboard.writeText(txt);
       setBanner('ok', 'Copied');
-    }catch(e){
+      return;
+    }
+  }catch(e){}
+
+  try{
+    const ta = document.createElement('textarea');
+    ta.value = txt;
+    ta.setAttribute('readonly','');
+    ta.style.position = 'fixed';
+    ta.style.top = '-9999px';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+
+    ta.focus();
+    ta.select();
+    ta.setSelectionRange(0, ta.value.length);
+
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+
+    if(ok){
+      setBanner('ok','Copied');
+    }else{
+      setBanner('warn','Copy not supported');
       window.prompt('Copy this:', txt);
     }
+  }catch(e){
+    setBanner('warn','Copy not supported');
+    window.prompt('Copy this:', txt);
   }
+}
+
 
   function onSerialScanned(raw){
     const s = normalizeSerial(raw);
