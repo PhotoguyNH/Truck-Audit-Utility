@@ -32,6 +32,9 @@ alert("APP.JS LOADED - 20260120");
   const copyNextMissing = $('copyNextMissing');
   const copyAllMissing = $('copyAllMissing');
   const copyAllScanned = $('copyAllScanned');
+  
+  alert(copyAllScanned ? 'copyAllScanned FOUND' : 'copyAllScanned NULL');
+
 
   const missingList = $('missingList');
   const extraList = $('extraList');
