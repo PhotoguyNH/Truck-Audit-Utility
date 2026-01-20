@@ -590,6 +590,7 @@ startScan.addEventListener('click', async ()=>{
   copyAllScanned.addEventListener('click', (e)=>{
   e.preventDefault();
   e.stopPropagation();
+    alert('COPY SCANNED HANDLER FIRED');
 
   const arr = Array.from(scanned).sort();
   copyText(arr.join('\n'));
