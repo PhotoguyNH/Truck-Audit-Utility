@@ -112,9 +112,21 @@
   }
 
   function normalizeSerial(s){
-    if(!s) return '';
-    return String(s).trim().toUpperCase();
-  }
+  if(!s) return '';
+  return String(s).trim().toUpperCase();
+}
+
+function stripControlChars(s){
+  // Remove non-printable characters that sometimes appear in 2D barcode payloads
+  return String(s || '').replace(/[\u0000-\u001F\u007F]/g, '');
+}
+
+function looksLikeSerial(s){
+  // Prevent accepting garbage decodes (like "1234")
+  if(!s) return false;
+  if(s.length < 8) return false; // adjust later if needed
+  return /^[A-Z0-9\-\/]+$/.test(s);
+}
 
   function resetSession(){
     expected.clear();
