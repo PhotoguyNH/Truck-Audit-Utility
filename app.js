@@ -572,7 +572,7 @@ startScan.addEventListener('click', async ()=>{
         stopScan.disabled = true;
         setBanner('warn', 'Timed out — tap Scan Next to try again');
           });
-      }, 20000);
+      }, 30000);
     }catch(e){
       startingCamera = false;
       armed = false;
