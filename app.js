@@ -401,13 +401,14 @@
     }
     preferredDeviceId = deviceId || null;
 
-    scanner = new ZXingBrowser.BrowserMultiFormatReader(undefined, {
-  formats: [
-    ZXingBrowser.BarcodeFormat.DATA_MATRIX,
-    ZXingBrowser.BarcodeFormat.QR_CODE
-  ]
-});
-
+   scanner = new ZXingBrowser.BrowserMultiFormatReader();
+    
+    scanner.possibleFormats = [
+  ZXingBrowser.BarcodeFormat.DATA_MATRIX,
+  ZXingBrowser.BarcodeFormat.QR_CODE,
+  ZXingBrowser.BarcodeFormat.AZTEC,
+  ZXingBrowser.BarcodeFormat.PDF_417
+];
     await scanner.decodeFromVideoDevice(deviceId, video, (result, err)=>{
   // Only act on a real decode result, and only when the user has armed scanning
   if(!result || !armed) return;
