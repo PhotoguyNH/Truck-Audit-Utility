@@ -9,8 +9,7 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-
-  <header class="topbar">
+   <header class="topbar">
     <div class="brand">
       
       <img id="brandLogo" src="Smiley.jpg?v=1" alt="Truck Audit Utility icon" />
@@ -109,9 +108,23 @@
         <video id="video" muted playsinline></video>
         <div class="scanGuide" aria-hidden="true"></div>
       </div>
+      <!-- Last Scanned (UI only - Step 1) -->
+<div id="lastScannedPanel" class="card lastScanned">
+  <div class="lastScannedHeader">
+  <div class="lastScannedTitle">Last Scanned</div>
+</div>
+
+  <div class="lastScannedField">
+  <div id="lastScannedValue" class="lastScannedValue">Nothing scanned yet</div>
+  <button id="dismissLastScanned" type="button" class="lastScannedClear" aria-label="Dismiss last scanned" disabled>
+    ✕
+  </button>
+</div>
 
       <!-- Controls live *below* the camera, so the preview stays the focus -->
     <div class="row scanControls">
+      
+
   <button id="startScan" class="primary bigAction">Scan</button>
   <button id="flashBtn" class="ghost lightBtn" disabled>Flashlight</button>
   <button id="stopScan" class="secondary" disabled>Finished</button>
