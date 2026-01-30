@@ -60,6 +60,11 @@
   let startingCamera = false;  // prevents double-start
   let hasScannedOnce = false;
   let armTimeoutId = null;
+  let armDelayId = null;
+  let lastCandidate = '';
+  let candidateSince = 0;
+  const DWELL_MS = 250; // milliseconds a code must stay steady
+
   let audioCtx = null;
 
   function ensureAudio(){
@@ -444,7 +449,7 @@ function isCenteredDecode(result, videoEl, tolerance = 0.22){
       if(!s) continue;
       const p = (pi !== undefined) ? String(r[pi] ?? '').trim() : '';
       const q = (qi !== undefined) ? String(r[qi] ?? '').trim() : '';
-      const ld = (li !== undefined) ? String(r[li] ?? '').trim() : '';
+      const ld = (li !== undefined) ? formatExcelDateCell(r[li]) : '';
       expected.set(s, { part: p, quality: q, lastDate: ld });
     }
 
@@ -475,6 +480,46 @@ function isCenteredDecode(result, videoEl, tolerance = 0.22){
     setBanner('ok', 'Quick Scan mode ready');
     updateUI();
   });
+// ===== Excel date normalization helper =====
+function formatExcelDateCell(v) {
+  if (v === null || v === undefined) return '';
+
+  // If SheetJS gives us a real Date object
+  if (v instanceof Date && !isNaN(v.getTime())) {
+    const mm = String(v.getMonth() + 1).padStart(2, '0');
+    const dd = String(v.getDate()).padStart(2, '0');
+    const yy = v.getFullYear();
+    return `${mm}/${dd}/${yy}`;
+  }
+
+  // If it's already a readable string, keep it
+  if (typeof v === 'string') {
+    const s = v.trim();
+    if (!s) return '';
+    // Numeric string like "46024"
+    if (/^\d+(\.\d+)?$/.test(s)) {
+      v = Number(s);
+    } else {
+      return s;
+    }
+  }
+
+  // Excel serial date number
+  if (typeof v === 'number' && isFinite(v)) {
+    const serial = Math.floor(v);
+    if (serial > 20000 && serial < 90000) {
+      const excelEpoch = new Date(1899, 11, 30);
+      const d = new Date(excelEpoch.getTime() + serial * 86400000);
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      const yy = d.getFullYear();
+      return `${mm}/${dd}/${yy}`;
+    }
+    return String(v);
+  }
+
+  return String(v).trim();
+}
 
   excelFile.addEventListener('change', async ()=>{
   const f = excelFile.files && excelFile.files[0];
@@ -547,6 +592,19 @@ await scanner.decodeFromConstraints(constraints, video, (result, err)=>{
 
   const rawText = result.getText();
   const cleaned = normalizeSerial(stripControlChars(rawText));
+  // Dwell: require the same code to be seen steadily for DWELL_MS before accepting it
+const now = Date.now();
+
+if (cleaned !== lastCandidate) {
+  lastCandidate = cleaned;
+  candidateSince = now;
+  return; // keep scanning; do not accept yet
+}
+
+if ((now - candidateSince) < DWELL_MS) {
+  return; // still waiting for steady dwell time
+}
+
 
   // If the decode looks like junk, ignore it and KEEP scanning (do not disarm)
   if(!looksLikeSerial(cleaned)){
@@ -656,7 +714,7 @@ startScan.addEventListener('click', async ()=>{
     commitPendingIfAny();
     const originalLabel = startScan.textContent;
     startScan.disabled = true;
-    startScan.textContent = 'Scanning…';
+    startScan.textContent = 'Aim…';
     stopScan.disabled = false;
     scanStartSound();
 
@@ -669,19 +727,39 @@ startScan.addEventListener('click', async ()=>{
         setBanner('ok', 'Camera started');
       }
 
-      // Arm for exactly one scan. The decode callback will disarm + re-enable the button.
-      armed = true;
-      if(armTimeoutId){ clearTimeout(armTimeoutId); }
-      armTimeoutId = setTimeout(()=>{
-        if(!armed) return;
-        armed = false;
-        stopCamera().then(()=>{
-        startScan.disabled = false;
-        startScan.textContent = hasScannedOnce ? 'Scan Next' : 'Scan';
-        stopScan.disabled = true;
-        setBanner('warn', 'Timed out — tap Scan Next to try again');
-          });
-      }, 30000);
+      // Arm for exactly one scan, but with a short delay so the user can align the red bar.
+      lastCandidate = '';
+      candidateSince = 0;
+      armed = false;
+
+// Clear any previous timers
+if(armDelayId){ clearTimeout(armDelayId); armDelayId = null; }
+if(armTimeoutId){ clearTimeout(armTimeoutId); armTimeoutId = null; }
+
+// Small “get ready” delay
+startScan.textContent = 'Aim…';
+
+armDelayId = setTimeout(()=>{
+  armDelayId = null;
+  armed = true;
+  startScan.textContent = 'Scanning…';
+
+  if(armDelayId){ clearTimeout(armDelayId); armDelayId = null; }
+
+  // Timeout starts AFTER we arm
+  armTimeoutId = setTimeout(()=>{
+    if(!armed) return;
+    armed = false;
+    stopCamera().then(()=>{
+      startScan.disabled = false;
+      startScan.textContent = hasScannedOnce ? 'Scan Next' : 'Scan';
+      stopScan.disabled = true;
+      setBanner('warn', 'Timed out — tap Scan Next to try again');
+    });
+  }, 30000);
+
+}, 450);
+
     }catch(e){
       startingCamera = false;
       armed = false;
@@ -851,6 +929,7 @@ const partFor = (serial) => {
   }
   return '';
 };
+    
 const qualityFor = (serial) => {
   if (mode === 'audit' && expected && expected.size > 0 && expected.has(serial)) {
     return expected.get(serial)?.quality || '';
@@ -895,22 +974,45 @@ const esc = (v) => {
 
 const csv = rows.map(r => r.map(esc).join(',')).join('\n');
 
-// Download
+// Share (preferred on phones), otherwise download
 const safeDate = new Date().toISOString().slice(0,10); // YYYY-MM-DD for filename
 const safeTech = tech.replace(/[^A-Za-z0-9_-]+/g, '_');
 const filename = `TAU_Audit_${safeDate}_${safeTech}.csv`;
 
 const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-const url = URL.createObjectURL(blob);
 
-const a = document.createElement('a');
-a.href = url;
-a.download = filename;
-document.body.appendChild(a);
-a.click();
-document.body.removeChild(a);
+// Try native share sheet first (iOS/Android support varies)
+(async () => {
+  try {
+    const file = new File([blob], filename, { type: 'text/csv' });
 
-setTimeout(() => URL.revokeObjectURL(url), 1000);
+    if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
+      await navigator.share({
+        files: [file],
+        title: 'Truck Audit Utility Export',
+        text: 'TAU export CSV'
+      });
+      setBanner('ok', 'Share sheet opened');
+      return;
+    }
+  } catch (e) {
+    // If share fails, fall back to download
+  }
+
+  // Fallback: download
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+
+  setBanner('ok', 'CSV downloaded');
+
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+})();
 
   });
 }
