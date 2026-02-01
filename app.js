@@ -17,7 +17,7 @@
   const flashBtn = $('flashBtn');
   const video = $('video');
   const banner = $('banner');
-
+  const IDLE_BANNER_TEXT = 'Scan status: Ready';
   const statExpected = $('statExpected');
   const statMatched = $('statMatched');
   const statMissing = $('statMissing');
@@ -110,15 +110,27 @@
   beep(2000, 180, 1.0);     // sharp confirmation
   setTimeout(() => beep(1200, 140, 1.0), 190); // softer tail
 }
+  
+function setIdleBanner(){
+  if(!banner) return;
+  banner.hidden = false;
+  banner.className = 'banner idle';
+  banner.textContent = 'Scan status: Ready';
+}
 
-  function setBanner(kind, text){
-    banner.hidden = false;
-    banner.className = 'banner ' + kind;
-    banner.textContent = text;
-    if(kind === 'ok'){
-      setTimeout(()=>{ banner.hidden = true; }, 900);
-    }
+ function setBanner(kind, text){
+  if(!banner) return;
+
+  banner.hidden = false;
+  banner.className = 'banner ' + kind;
+  banner.textContent = text;
+
+  if(kind === 'ok'){
+    setTimeout(()=>{
+      setIdleBanner(); // go back to the idle message
+    }, 900);
   }
+}
 
   function normalizeSerial(s){
   if(!s) return '';
@@ -586,58 +598,46 @@ const constraints = {
 };
 
 await scanner.decodeFromConstraints(constraints, video, (result, err)=>{
-
-  // Only act on a real decode result, and only when the user has armed scanning
   if(!result || !armed) return;
 
   const rawText = result.getText();
-  const cleaned = normalizeSerial(stripControlChars(rawText));
-  // Dwell: require the same code to be seen steadily for DWELL_MS before accepting it
-const now = Date.now();
+  let cleaned = normalizeSerial(stripControlChars(rawText));
 
-if (cleaned !== lastCandidate) {
-  lastCandidate = cleaned;
-  candidateSince = now;
-  return; // keep scanning; do not accept yet
-}
+  // PN labels sometimes include a literal "#" in the encoded text
+cleaned = cleaned.replace(/#/g, '');
 
-if ((now - candidateSince) < DWELL_MS) {
-  return; // still waiting for steady dwell time
-}
-
-
-  // If the decode looks like junk, ignore it and KEEP scanning (do not disarm)
-  if(!looksLikeSerial(cleaned)){
-    setBanner('warn', 'Unclear scan — hold steadier and try again');
+  // Ignore ultra-short junk decodes silently
+  if(!cleaned || cleaned.length < 7){
     return;
   }
 
-  // Center-bias: prefer barcodes near the center of the camera view
-  if(!isCenteredDecode(result, video, 0.22)){
-    setBanner('warn', 'Aim the red line at the barcode (center of camera)');
-    return; // keep scanning, do NOT disarm
+  // Reject things that don't look like serials, but stay armed
+  if(!looksLikeSerial(cleaned)){
+    setBanner('warn', 'Rejected: ' + cleaned);
+    // Don’t get “stuck” dwelling on a bad candidate
+    lastCandidate = '';
+    candidateSince = 0;
+    return; // keep scanning
   }
 
-  // One-scan-per-click: accept first VALID result, then disarm until the user taps Scan Next.
+  // Accept the scan
   armed = false;
   hasScannedOnce = true;
-  if(armTimeoutId){ clearTimeout(armTimeoutId); armTimeoutId = null; }
+  if(armTimeoutId){
+    clearTimeout(armTimeoutId);
+    armTimeoutId = null;
+  }
 
   scanSuccessSound();
   setPendingScan(cleaned);
 
-  // Shut the camera off after a successful scan
   stopCamera().then(()=>{
-  startScan.disabled = false;
-  startScan.textContent = 'Scan Next';
-
-  // If there's a pending scan, allow Finished to commit it
-  stopScan.disabled = !pendingScanText;
-
-  setBanner('ok', 'Scan captured — tap Scan Next to commit');
+    startScan.disabled = false;
+    startScan.textContent = 'Scan Next';
+    stopScan.disabled = !pendingScanText;
+    setBanner('ok', 'Scan captured — tap Scan Next to commit');
   });
 });
-
 
     try{
       const stream = video.srcObject;
@@ -1077,6 +1077,9 @@ if ('serviceWorker' in navigator) {
 }
 
   setBanner('ok', 'Choose a mode to begin');
+  setIdleBanner();
+  banner.className = 'banner';
+  banner.textContent = IDLE_BANNER_TEXT;
   updateUI();
 
 /* Reload warning dismiss */
