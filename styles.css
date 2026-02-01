@@ -69,10 +69,24 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .stat{border:1px solid var(--border);border-radius:14px;padding:10px;background:#fbfcff}
 .stat .k{font-size:12px;color:var(--muted)}
 .stat .v{font-size:20px;font-weight:800;margin-top:4px}
-.banner{border-radius:14px;padding:10px 12px;font-weight:800}
+.banner{border-radius:14px;min-height:28px;padding:6px 10px;font-weight:800;font-size:0.85rem;line-height:1.2}
 .banner.ok{background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0}
 .banner.warn{background:#fff7ed;color:#9a3412;border:1px solid #fed7aa}
 .banner.bad{background:#fef2f2;color:#991b1b;border:1px solid #fecaca}
+/* Idle scan status text */
+.banner.idle{
+  color:#9ca3af;
+  background:transparent;
+  border:1px dashed #e5e7eb;
+}
+
+/* Idle scan status text */
+.banner:not(.ok):not(.warn):not(.bad){
+  color: #9ca3af;   /* light grey */
+  background: transparent;
+  border: 1px dashed #e5e7eb;
+}
+
 .scanControls{align-items:stretch}
 .bigAction{flex:1;min-width:180px;font-size:18px;padding:16px 18px}
 
@@ -340,4 +354,27 @@ label.fileBtn span {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+/* Prevent banner show/hide from shifting the camera */
+.banner {
+  min-height: 56px;            /* reserves space so the video doesn't move */
+}
+
+/* Override the HTML hidden behavior (normally display:none) */
+.banner[hidden] {
+  display: block;
+  visibility: hidden;
+}
+/* ==== Banner final override (compact + no layout shift) ==== */
+#banner.banner{
+  min-height: 28px !important;
+  padding: 6px 10px !important;
+  font-size: 0.85rem !important;
+  line-height: 1.2 !important;
+  margin: 0 0 10px 0 !important; /* small space below */
+}
+
+#banner.banner[hidden]{
+  display: block !important;
+  visibility: hidden !important;
 }
