@@ -300,7 +300,7 @@ function isCenteredDecode(result, videoEl, tolerance = 0.22){
     if(mode === 'audit'){
       regenerateMissingQueue();
       copyNextMissing.disabled = missingQueue.length === 0;
-      copyAllMissing.disabled = missingQueue.length === 0;
+      if(copyAllMissing) copyAllMissing.disabled = missingQueue.length === 0;
     } else {
       copyNextMissing.disabled = true;
       copyAllMissing.disabled = true;
@@ -828,11 +828,13 @@ armDelayId = setTimeout(()=>{
   copyText(arr.join('\n'));
 });
 
+  if(copyAllMissing){
   copyAllMissing.addEventListener('click', ()=>{
     if(mode !== 'audit') return;
     regenerateMissingQueue();
     copyText(missingQueue.join('\n'));
   });
+}
 
   copyNextMissing.addEventListener('click', ()=>{
     if(mode !== 'audit') return;
@@ -848,10 +850,12 @@ let pendingScanText = ''; // holds scan waiting to be committed
 
 const lastScannedValueEl = document.getElementById('lastScannedValue');
 const dismissLastScannedBtn = document.getElementById('dismissLastScanned');
+const lastScannedCheckEl = document.getElementById('lastScannedCheck');
+
 
 function renderLastScannedUI(){
   if(!lastScannedValueEl || !dismissLastScannedBtn) return;
-
+  
     if(pendingScanText){
     lastScannedValueEl.textContent = pendingScanText;
     dismissLastScannedBtn.disabled = false;
@@ -877,15 +881,26 @@ function clearPendingScan(){
   pendingScanText = '';
   renderLastScannedUI();
 }
+function flashLastScannedCheck(){
+  if(!lastScannedCheckEl) return;
+
+  // Show the check briefly
+  lastScannedCheckEl.hidden = false;
+
+  setTimeout(()=>{
+    if(lastScannedCheckEl) lastScannedCheckEl.hidden = true;
+  }, 750);
+}
 
 // When the user taps Scan/Scan Next, commit the previous pending scan first
 function commitPendingIfAny(){
   if(!pendingScanText) return false;
 
-  // This is the "real" commit into Found/Missing/Extra:
   onSerialScanned(pendingScanText);
 
-  clearPendingScan();
+  clearPendingScan();        // clears the value + re-renders
+  flashLastScannedCheck();   // now the ✔ can appear and stay briefly
+
   return true;
 }
 
