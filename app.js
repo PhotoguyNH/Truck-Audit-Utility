@@ -364,16 +364,17 @@ function updateExportButtonState() {
   const btn = document.getElementById('exportCsv');
   if (!btn) return;
 
-  // Auditor export only makes sense in Audit mode (Excel uploaded),
-  // and only when there is at least 1 Missing serial to export.
-  if (mode !== 'audit' || !expected || expected.size === 0) {
-    btn.disabled = true;
-    return;
-  }
+  const hasExpected = expected && expected.size > 0;
 
   regenerateMissingQueue(); // keep missingQueue fresh
-  btn.disabled = !(missingQueue && missingQueue.length > 0);
+  const hasMissing = missingQueue && missingQueue.length > 0;
+
+  const hasTech = techNameField && techNameField.value.trim().length > 0;
+  const hasContractor = contractorField && contractorField.value.trim().length > 0;
+
+  btn.disabled = !(mode === 'audit' && hasExpected && hasMissing && hasTech && hasContractor);
 }
+
 
   function onSerialScanned(raw){
     const s = normalizeSerial(raw);
@@ -914,10 +915,45 @@ if(dismissLastScannedBtn){
 // Initialize the UI on load
 renderLastScannedUI();
 
+async function shareOrDownloadCsv(csvText, filename) {
+  const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8' });
+
+  // Try Share Sheet first (iOS-friendly: attempt share even if canShare is absent/finicky)
+  if (navigator.share) {
+    try {
+      const file = new File([blob], filename, { type: 'text/csv;charset=utf-8' });
+
+      await navigator.share({
+        files: [file],
+        title: filename,
+        text: 'TAU export',
+      });
+
+      return 'share';
+    } catch (e) {
+      // user cancel or iOS blocks → fall through to download
+    }
+  }
+
+  // Fallback: download
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+  return 'download';
+}
+
+
+
 const exportBtn = document.getElementById('exportCsv');
 
 if (exportBtn) {
-  exportBtn.addEventListener('click', () => {
+  exportBtn.addEventListener('click', async () => {
     if (exportBtn.disabled) return;
 
     // Auditor export only works in Audit mode with an uploaded Excel
@@ -937,11 +973,9 @@ if (exportBtn) {
       return;
     }
 
-    const techName = window.prompt('Technician name (required):', '');
-    if (!techName || !techName.trim()) return;
+    const techName = techNameField.value.trim();
+    const contractorName = contractorField.value.trim();
 
-    const contractorName = window.prompt('CONTRACTOR FIRM NAME or GARAGE (required):', '');
-    if (!contractorName || !contractorName.trim()) return;
 
     // Date (MM/DD/YYYY)
     const d = new Date();
@@ -954,6 +988,7 @@ if (exportBtn) {
     // Date, Technician Name, Contractor Name, Serial Number, Equipment Status, Notes
     const rows = [];
     rows.push(['Date','Technician Name','Contractor Name or Garage','Serial Number','Equipment Status','Notes']);
+
     const tech = techName.trim();
     const contractor = contractorName.trim();
 
@@ -975,44 +1010,8 @@ if (exportBtn) {
     const safeTech = tech.replace(/[^A-Za-z0-9_-]+/g, '_');
     const safeContractor = contractor.replace(/[^A-Za-z0-9_-]+/g, '_');
     const filename = `TAU_Auditor_${safeDate}_${safeTech}_${safeContractor}.csv`;
-
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-
-   // Try native share sheet first, otherwise download
-(async () => {
-  // IMPORTANT: On iOS Safari, navigator.share may exist even when navigator.canShare is missing.
-  // So: try share if available, and fall back gracefully if it throws.
-  if (navigator.share) {
-    try {
-      const file = new File([blob], filename, { type: 'text/csv' });
-
-      await navigator.share({
-        files: [file],
-        title: 'TAU Auditor Export',
-        text: 'Missing-only auditor CSV'
-      });
-
-      setBanner('ok', 'Share sheet opened');
-      return;
-    } catch (e) {
-      // Share failed or was blocked → fall through to download
-    }
-  }
-
-  // Fallback: download
-  const url = URL.createObjectURL(blob);
-
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-
-  setBanner('ok', 'CSV downloaded');
-
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-   })();
+    
+    await shareOrDownloadCsv(csv, filename);
 
   });
 }
